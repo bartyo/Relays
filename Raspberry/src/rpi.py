@@ -1,7 +1,113 @@
 import os
 import json
-import requests
 import time
+import serial
+
+#=====TO DO===============================#
+#=Threading, one for BLE and one for HTTP=#
+#=BLE implementation                     =#
+#=POST request to check a device ID      =#
+#=========================================#
+
+class bluetooth:
+    """"Class to define bluetooth connection"""
+    _data = 0
+    _port = "/dev/ttyAMA0"
+    _baudrate = 9600
+    _timeout = 2
+    _light = 0
+    _begin = "{"
+    _end = "}"
+    _endacquire = 0
+
+    def __init__(self,port,baudrate,timeout):
+        self._port = port
+        self._baudrate = baudrate
+        self._timeout = timeout
+        return serial.Serial(self._port, self._baudrate, self._timeout)
+
+    def serialize(self):
+
+    def deserialize():
+
+    def acquire():
+
+    def get_data(self):
+        return self._data
+
+class http:
+    """"Class to define http connection, define with :
+    - her token
+    - her data received
+    """
+    _data = 0
+    _token = ""
+    _id = ""
+    _email = ""
+    _password = ""
+    _url = {
+                'token':'https://projsante.herokuapp.com/api/auth',
+                'devices':'https://projsante.herokuapp.com/api/relays/devices',
+                'patient':'https://projsante.herokuapp.com/api/patients?_id=%s',
+                'send_data':'https://projsante.herokuapp.com/api/relays/devices',
+            }
+    _header = {'content-type':'application/json','x-auth-token':''}
+    _paramAuth = {'email':'','password':''}
+    _paramData = 0
+    _error = ""
+    _timer = 0
+
+    def __init__(self, token=""):
+        self.add_headers(self.token)
+
+    def __init__(self,email,password):
+        self._email = email
+        self.password = password
+        self._paramAuth["email"] = email
+        self._paramAuth["password"] = password
+
+    def get_token(self):
+        """get token authenticator from webapp"""
+        self.set_timer(time.time())
+        r = requests.post(url = self._url['token'], data = json.dumps(self._paramAuth), headers = self._header)
+        token = json.loads(r.text)
+        try:
+            self._token = token["token"]
+            self._header['x-auth-token'] = token
+        except:
+            self._error = "no token receive"
+
+    def get_devices(self):
+        self.set_timer(time.time())
+        r = requests.get(url = _url['devices'], headers = self._header)
+        return r
+
+    def send_data(self):
+
+    def is_device_exists(id):
+        """Check if device is present into web database, use when device try to send data and its is is not stored localy"""
+        r = requests.get(url = _url['patient']%(id,), headers = self._header)
+        if r.status == 200:
+            return 1
+        else:
+            return 0
+
+    def add_headers_token(self, headers):
+        self._header['x-auth-token'] = headers
+
+    def get_token_dev(self):
+        print(self._token)
+
+    def get_error_dev(self):
+        print(self._error)
+
+    def set_timer(self, timer):
+        self._timer = timer
+
+    def get_timer(self):
+        return self._timer
+
+
 
 
 class Devices:
@@ -10,7 +116,7 @@ class Devices:
     _nbDevices = 0
     _listDevice = []
     def __init__(self):
-        self._nbDevices +=1
+        self._nbDevices += 1
 
 
 class Device:
@@ -67,45 +173,51 @@ g_timer_relay = 0
 g_sensor = []
 
 def main():
+    
     setup()
-    while 1:
-        loop()
 
 
 def setup():
     # defining a params dict for the parameters to be sent to the API 
-    PARAMS = {'email':'test@test.com','password':'12345'}
+    #PARAMS = {'email':'test@test.com','password':'12345'}
 
-    HEADERS = {'content-type':'application/json'}
-    
+    #HEADERS = {'content-type':'application/json'}
+    token_r = http("test@test.com","12345")
+    token_r.http_post(URL_AUTH)
+    token_r.get_token()
+    token_r.get_error()
+
+    http_data = http(token_r.get_token())
+    loop(http_data)
     # sending get request and saving the response as response object 
-    r = requests.post(url = URL_AUTH, data = json.dumps(PARAMS), headers = HEADERS) 
+    #r = requests.post(url = URL_AUTH, data = json.dumps(PARAMS), headers = HEADERS) 
     
     # extracting data in json format 
-    data = r.text
-    global token
-    token = json.loads(data)
-    print(token["token"])
+    #data = r.text
+    #global token
+    #token = json.loads(data)
+    #print(token["token"])
     global g_timer_relay
     g_timer_relay = time.time()
 
-def loop():
-    global g_timer_relay
-    global g_sensor
-    #print(time.time()-g_timer_relay)
-    if time.time()-g_timer_relay > 10:
-        g_timer_relay = time.time()
-        HEADERS_RELAYS = {'x-auth-token':token["token"]}
-        r = requests.get(url = URL_RELAYS, headers = HEADERS_RELAYS)
-        data = r.text
-        dataJson = json.loads(data)
-        #print(range(dataJson))
-        for elem in range(len(dataJson)):
+def loop(http_data):
+    while 1:
+        global g_timer_relay
+        global g_sensor
 
-            #print(json.loads(elem)["id"])
-            is_device_exists(dataJson[elem]["id"])
-            #print(dataJson[elem]["id"])
-        display_sensors()
+        nn = input()
+        print("nn : ",nn)
+        #print(time.time()-g_timer_relay)
+        if time.time()-http_data.get_timer() > 10:
+            http_data.set_timer(time.time())
+            dataJson = json.loads(http_data.http_get())
+
+            for elem in range(len(dataJson)):
+
+                #print(json.loads(elem)["id"])
+                is_device_exists(dataJson[elem]["id"])
+                #print(dataJson[elem]["id"])
+            display_sensors()
 
 def is_device_exists(id):
     global g_sensor
@@ -145,5 +257,4 @@ def display_sensors():
 main()
 
 
-print("C'est loupie et loupie les plus belles")
 os.system("pause")
